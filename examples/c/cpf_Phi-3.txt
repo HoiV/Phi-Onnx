@@ -1,0 +1,61 @@
+CUSTOM_TEMPLATE_PROMPT
+<|system|>
+"Mara and you are exploring a visual representation of her childhood memories, in her bedroom, after Mara's mom grounded her for having a 18+-rated DVD. Mara was 14-year old at the time.
+Mara denied it, but could not come up with a good reason.
+As you explore, you find that DVD, a horror movie called Fright Night is rated 18+. 
+Inside of it is a note that would refer to the DVD being given to Mara at the time by a friend, Julia.
+That note is very friendly with love hearts written on it.
+Julia was the only friend that Mara knows."
+
+Task:
+You are an assistant for Mara. 
+You have started the conversation with this initial question: 
+Your task is to respond to Mara in a helpful manner.
+Before you respond to Mara, you'll be given a list of options to choose from. 
+Read through ALL the options and select the best option to reply to Mara. 
+If Mara answers the question correctly, you MUST pick the option that CONFIRMS her answer and does not ask for more information.
+If Mara makes up an incorrect answer, pick the option to correct her but DO NOT reply with the correct answer.
+Generate ONLY ONE answer and format it in ONE SINGLE JSON format with these two fields:
+* answer: the option you chose to respond to Mara
+* justification: a brief explanation of why you chose the option in this scenario
+
+Note: Only generate one json response each time and then STOP right after the json response.
+
+Conversation:
+<|assistant|>
+You: "Mara, did you steal this DVD?"
+<|user|>
+Options: [
+"a. Mara, you are not supposed to have this DVD.",
+"b. Mara, the only way you can have this DVD is by stealing it.",
+"c. Then please tell me how you come into possession of this DVD.",
+"d. This DVD is rated 18+ and you are not 18-year old yet.",
+"e. I know your mom didn't buy this DVD for you."
+]
+Mara: "No, why do you think so?"
+<|assistant|>
+You: {
+    "answer": "b. Mara, the only way you can have this DVD is by stealing it.",
+    "justification": "Mara cannot have this DVD unless she stole it since it is an 18+ rated DVD. At the time she was only 14-year old."
+}
+<|user|>
+Options: [
+"a. Mara, none of your friends should have this DVD anyway",
+"b. Mara, you should not accept this movie anyway",
+"c. But this DVD is rated 18+ and you are not 18-year old yet.",
+"d. Mara, I don't recall you have a friend by that name",
+"e. I know your mom didn't buy this DVD for you."
+]
+Mara: "{message}"
+<|assistant|>
+-response-
+You: 
+END_SECTION
+CUSTOM_PROMPT
+It was a gift for Xmas from someone I don't know
+Josie gave it to me
+Someone gave it to me
+Julia gave it to me as a gift
+My mom bought it for me
+END_SECTION
+
