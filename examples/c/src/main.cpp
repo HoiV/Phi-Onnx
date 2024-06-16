@@ -32,33 +32,6 @@ int64_t timer_us(void) {
 
 std::string custom_template_prompt;
 std::vector<std::string> custom_prompts;
-std::vector<std::string>::iterator custom_prompts_it;
-
-#if 0
-// C++ API Example
-
-void CXX_API(const char* model_path) {
-  auto model = OgaModel::Create(model_path);
-  auto tokenizer = OgaTokenizer::Create(*model);
-
-  const char* prompt = "def is_prime(num):";
-  std::cout << "Prompt: " << std::endl << prompt << std::endl;
-
-  auto sequences = OgaSequences::Create();
-  tokenizer->Encode(prompt, *sequences);
-
-  auto params = OgaGeneratorParams::Create(*model);
-  params->SetSearchOption("max_length", 200);
-  params->SetInputSequences(*sequences);
-
-  auto output_sequences = model->Generate(*params);
-  auto out_string = tokenizer->Decode(output_sequences->Get(0));
-
-  std::cout << "Output: " << std::endl << out_string << std::endl;
-}
-#endif
-
-// C API Example
 
 void CheckResult(OgaResult* result) {
   if (result) {
@@ -131,8 +104,71 @@ void PrintOutput(const char *output_string) {
             << result << std::endl;
 }
 
+// C++ API Example
+
+void CXX_API(const char* model_path) {
+  int64_t t_start = timer_us();
+  auto model = OgaModel::Create(model_path);
+  auto tokenizer = OgaTokenizer::Create(*model);
+
+  size_t current_custom_prompt_index = 0;
+  std::vector<std::string>::iterator custom_prompts_it = custom_prompts.begin();
+
+  while (custom_prompts_it != custom_prompts.end()) {
+    // Create custom user prompt
+    std::string& custom_prompt = *custom_prompts_it;
+    printf("\n"
+           "> Running with custom prompt => [%zd/%zd][%s]\n", 
+           ++current_custom_prompt_index, 
+           custom_prompts.size(),
+           custom_prompt.c_str());
+
+    std::string full_custom_prompt = custom_template_prompt;
+    size_t pos = full_custom_prompt.find("{message}");
+    if (pos != std::string::npos) {
+        full_custom_prompt.replace(pos, std::string("{message}").length(), custom_prompt);
+    }
+
+    int64_t t0 = timer_us();
+    auto sequences = OgaSequences::Create();
+    tokenizer->Encode(full_custom_prompt.c_str(), *sequences);
+    int64_t t1 = timer_us();
+    printf("  - Encode time     %9.2fms\n", (double)(t1 - t0) / 1000.);
+
+    auto params = OgaGeneratorParams::Create(*model);
+    params->SetSearchOption("max_length", 1024);
+    params->SetInputSequences(*sequences);
+    auto output_sequences = model->Generate(*params);
+
+    const auto output_sequence_length = output_sequences->SequenceCount(0);
+
+    int64_t t2 = timer_us();
+    printf("  - Generation time %9.2fms - %5.2f tps (%zd)\n",
+      (double)(t2 - t1) / 1000.0, 
+      (double)(t2 - t1)/ (1000.0 * 1000.0 * output_sequence_length), 
+      output_sequence_length);
+
+    const auto* output_sequence_data = output_sequences->SequenceData(0);
+    auto out_string = tokenizer->Decode(output_sequence_data, output_sequence_length);
+
+    int64_t t3 = timer_us();
+    printf("  - Decode time     %9.2fms\n", (double)(t3 - t2) / 1000.0);
+
+    PrintOutput(out_string);
+
+    custom_prompts_it++;
+
+    OgaDestroyString(out_string);
+  }
+
+  int64_t t_elapsed = timer_us() - t_start;
+  printf("\n\nTotal elapsed time:     %9.2fs\n\n", (double)t_elapsed / (1000.0 * 1000.0));
+}
+
+// C API Example
+
 void C_API(const char* model_path) {
-  int64_t t_start = timer_us();;
+  int64_t t_start = timer_us();
   OgaModel* model;
   OgaCreateModel(model_path, &model);
 
@@ -140,6 +176,8 @@ void C_API(const char* model_path) {
   CheckResult(OgaCreateTokenizer(model, &tokenizer));
 
   size_t current_custom_prompt_index = 0;
+  std::vector<std::string>::iterator custom_prompts_it = custom_prompts.begin();
+
   while (custom_prompts_it != custom_prompts.end()) {
     // Create custom user prompt
     std::string& custom_prompt = *custom_prompts_it;
@@ -167,17 +205,33 @@ void C_API(const char* model_path) {
     CheckResult(OgaGeneratorParamsSetSearchNumber(params, "max_length", 1024));
     CheckResult(OgaGeneratorParamsSetInputSequences(params, sequences));
 
-    OgaSequences* output_sequences;
+    OgaSequences* output_sequences = NULL;
+    OgaGenerator *generator = NULL;
+    const int32_t* sequence = NULL;
+    size_t sequence_length = 0;
+
+#if 0
+    int token_counter = 0;
+    CheckResult(OgaCreateGenerator(model, params, &generator));
+    while (!OgaGenerator_IsDone(generator)) {
+      CheckResult(OgaGenerator_ComputeLogits(generator));
+      CheckResult(OgaGenerator_GenerateNextToken(generator));
+      sequence_length++;
+    }
+    sequence = OgaGenerator_GetSequenceData(generator, 0);
+#else
     CheckResult(OgaGenerate(model, params, &output_sequences));
+    sequence_length = OgaSequencesGetSequenceCount(output_sequences, 0);
+    sequence = OgaSequencesGetSequenceData(output_sequences, 0);
+#endif
+
     int64_t t2 = timer_us();
 
-    size_t sequence_length = OgaSequencesGetSequenceCount(output_sequences, 0);
     printf("  - Generation time %9.2fms - %5.2f tps (%zd)\n",
       (double)(t2 - t1) / 1000.0, 
       (double)(t2 - t1)/ (1000.0 * 1000.0 * sequence_length), 
       sequence_length);
 
-    const int32_t* sequence = OgaSequencesGetSequenceData(output_sequences, 0);
     const char* out_string;
     CheckResult(OgaTokenizerDecode(tokenizer, sequence, sequence_length, &out_string));
     int64_t t3 = timer_us();
@@ -188,13 +242,18 @@ void C_API(const char* model_path) {
     custom_prompts_it++;
 
     OgaDestroyString(out_string);
-    OgaDestroySequences(output_sequences);
     OgaDestroyGeneratorParams(params);
     OgaDestroySequences(sequences);
+    if (output_sequences != NULL) {
+      OgaDestroySequences(output_sequences);
+    }
+    if (generator != NULL) {
+      OgaDestroyGenerator(generator);
+    }
   }
 
   int64_t t_elapsed = timer_us() - t_start;
-  printf("\n\nTotal elapsed time:     %9.2fs\n", (double)t_elapsed / (1000.0 * 1000.0));
+  printf("\n\nTotal elapsed time:     %9.2fs\n\n", (double)t_elapsed / (1000.0 * 1000.0));
 
   OgaDestroyTokenizer(tokenizer);
   OgaDestroyModel(model);
@@ -216,15 +275,18 @@ int main(int argc, char** argv) {
 
   timer_init();
 
-//  std::cout << "C++ API" << std::endl;
-//  CXX_API(argv[1]);
-
   if (argc > 2) {
     processCustomPromptsFromFile(argv[2]);
-    custom_prompts_it = custom_prompts.begin();
   }
 
+  std::cout << "-------" << std::endl;
+  std::cout << "C++ API" << std::endl;
+  std::cout << "-------" << std::endl;
+  CXX_API(argv[1]);
+
+  std::cout << "-----" << std::endl;
   std::cout << "C API" << std::endl;
+  std::cout << "-----" << std::endl;
   C_API(argv[1]);
 
   return 0;
