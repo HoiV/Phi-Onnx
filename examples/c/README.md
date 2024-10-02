@@ -31,10 +31,12 @@ python -m onnxruntime_genai.models.builder -m microsoft/phi-2 -p int4 -e cpu -o 
 
 1. Copy over all the dlls and libs over to the [lib](lib) directory.
   - onnxruntime.dll
-  - onnxruntime_providers_shared.dll
-  - onnxruntime_providers_cuda.dll
+  - onnxruntime_providers_shared.dll <<<< No longer required unless running with Python
+  - onnxruntime_providers_cuda.dll   <<<< Only for CUDA with Python
   - onnxruntime-genai.dll
   - onnxruntime-genai.lib
+  - D3D12Core.dll                    <<<< Latest new DLL required
+  - DirectML.dll                     <<<< obvious tax
 2. Copy over the `ort_genai.h` and `ort_genai_c.h` header files to the [include](include) directory.
 
 On Windows:
@@ -44,9 +46,9 @@ cd build
 cmake --build . --config Release
 ```
 
-## Run the Phi-2 Model
+## Run the Phi-3 Model
 
 ```bash
 cd build\\Release
-.\phi2.exe path_to_model
+.\phi3.exe path_to_model
 ```
