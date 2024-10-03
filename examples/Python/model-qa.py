@@ -28,8 +28,8 @@ def main(args):
     while True:
         text = input("Input: ")
         if not text:
-            print("Error, input cannot be empty")
-            continue
+            print("Empty input - exiting")
+            exit(0)
 
         if args.timings: started_timestamp = time.time()
 
