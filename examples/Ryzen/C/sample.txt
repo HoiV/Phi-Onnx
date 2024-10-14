@@ -1,0 +1,45 @@
+#include <onnxruntime_cxx_api.h>
+// include user header files
+// ...
+std::string xclbin_path = "path/to/xclbin";
+std::string model_path  = "path/to/model.onnx";
+std::string config_path = "path/to/config.json";
+auto model_name = strconverter.from_bytes(model_path);
+
+_putenv_s("XLNX_VART_FIRMWARE", xclbin_path.c_str());
+
+Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "quicktest");
+
+// create inference session
+auto session_options = Ort::SessionOptions();
+auto options = std::unordered_map<std::string, std::string>{
+    {"config_file", config_path},          // Required
+    {"cacheDir",    "path/to/cacheDir"},   // Optional
+    {"cacheKey",    "cacheName"}           // Optional
+};
+session_options.AppendExecutionProvider_VitisAI(options);
+auto session = Ort::Session(env, model_name.data(), session_options);
+
+// preprocess input data
+// ...
+
+
+// get input/output names from model
+size_t                   input_count;
+size_t                   output_count;
+std::vector<const char*> input_names;
+std::vector<const char*> output_names;
+...
+
+// initialize input tensors
+std::vector<Ort::Value>  input_tensors;
+...
+
+// run inference
+auto output_tensors = session.Run(
+        Ort::RunOptions(),
+        input_names.data(), input_tensors.data(), input_count,
+        output_names.data(), output_count);
+
+// postprocess output data
+// ...
