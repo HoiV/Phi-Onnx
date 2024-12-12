@@ -105,6 +105,7 @@ void PrintOutput(const char *output_string) {
 }
 
 void Onnx_Generator(const char* model_path) {
+  OgaHandle ogaHandle; // for proper shutdown :-(
   int64_t t_start = timer_us();
   auto model = OgaModel::Create(model_path);
   auto tokenizer = OgaTokenizer::Create(*model);
@@ -178,8 +179,7 @@ void Onnx_Generator(const char* model_path) {
       // std::cout << new_token_string << std::flush;
       out_string += new_token_string;
       if (strchr(new_token_string, '}') != NULL) {
-        // we can stop now
-        generator->SetRuntimeOption("terminate_session", "1");
+        // foundthe marker so stop now
         break;
       }
     }
