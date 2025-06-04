@@ -62,10 +62,14 @@ set(TARGET phi3v)
   add_executable(phi3v ${CMAKE_SOURCE_DIR}/src/phi3v.cpp)
   prepare_executable(phi3v)
 
-set(TARGET whisper)
-  add_executable(whisper ${CMAKE_SOURCE_DIR}/src/whisper.cpp)
-  prepare_executable(whisper)
+#set(TARGET whisper)
+#  add_executable(whisper ${CMAKE_SOURCE_DIR}/src/whisper.cpp)
+#  prepare_executable(whisper)
 
 set(TARGET cpf)
   add_executable(cpf ${CMAKE_SOURCE_DIR}/src/cpf.cpp)
   prepare_executable(cpf)
+
+set(TARGET cpf_v2)
+  add_executable(cpf_v2 ${CMAKE_SOURCE_DIR}/src/cpf_v2.cpp)
+  prepare_executable(cpf_v2)
