@@ -73,3 +73,7 @@ set(TARGET cpf)
 set(TARGET cpf_v2)
   add_executable(cpf_v2 ${CMAKE_SOURCE_DIR}/src/cpf_v2.cpp)
   prepare_executable(cpf_v2)
+
+  set(TARGET cpf_v2_1)
+  add_executable(cpf_v2_1 ${CMAKE_SOURCE_DIR}/src/cpf_v2.1.cpp)
+  prepare_executable(cpf_v2_1)
