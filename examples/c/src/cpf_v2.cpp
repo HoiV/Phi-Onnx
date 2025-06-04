@@ -1,13 +1,17 @@
 #include <iostream>
 #include <span>
 #include <string>
+#include <cstring>
 #include <fstream>
 #include <time.h>
 #include <vector>
-#include <thread>
-#include <condition_variable>
-#include <functional>
 #include "ort_genai.h"
+#include <thread>
+#include <csignal>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <functional>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -156,6 +160,8 @@ void PrintOutput(const char *output_string) {
 }
 
 void Onnx_Generator(const char* model_path, const char* execution_provider) {
+  signal(SIGINT, signalHandlerWrapper);
+
   std::cout << "Creating config..." << std::endl;
   auto config = OgaConfig::Create(model_path);
 
@@ -213,42 +219,51 @@ void Onnx_Generator(const char* model_path, const char* execution_provider) {
     size_t tokens_generated = 0;
     int64_t t_gen_tokens = 0;
 
-    while (!generator->IsDone()) {
-      generator->GenerateNextToken();
+    try {
 
-      if (is_first_token) {
-        int64_t t1 = timer_us();
-        printf("  - TTFT %9.2fms\n", (double)(t1 - t0) / 1000.);
+      while (!generator->IsDone()) {
+        generator->GenerateNextToken();
 
-        // timing.RecordFirstTokenTimestamp();
-        is_first_token = false;
-        t_gen_tokens = timer_us();
-      }
+        if (is_first_token) {
+          int64_t t1 = timer_us();
+          printf("  - TTFT %9.2fms\n", (double)(t1 - t0) / 1000.);
 
-      // Show usage of GetOutput
-      std::unique_ptr<OgaTensor> output_logits = generator->GetOutput("logits");
+          // timing.RecordFirstTokenTimestamp();
+          is_first_token = false;
+          t_gen_tokens = timer_us();
+        }
 
-      // Assuming output_logits.Type() is float as it's logits
-      // Assuming shape is 1 dimensional with shape[0] being the size
-      auto logits = reinterpret_cast<float*>(output_logits->Data());
+#if 0
+        // Show usage of GetOutput
+        std::unique_ptr<OgaTensor> output_logits = generator->GetOutput("logits");
 
-      // Print out the logits using the following snippet, if needed
-      //auto shape = output_logits->Shape();
-      //for (size_t i=0; i < shape[0]; i++)
-      //   std::cout << logits[i] << " ";
-      //std::cout << std::endl;
+        // Assuming output_logits.Type() is float as it's logits
+        // Assuming shape is 1 dimensional with shape[0] being the size
+        auto logits = reinterpret_cast<float*>(output_logits->Data());
 
-      const auto num_tokens = generator->GetSequenceCount(0);
-      const auto new_token = generator->GetSequenceData(0)[num_tokens - 1];
-      tokens_generated++;
+        // Print out the logits using the following snippet, if needed
+        //auto shape = output_logits->Shape();
+        //for (size_t i=0; i < shape[0]; i++)
+        //   std::cout << logits[i] << " ";
+        //std::cout << std::endl;
+#endif
 
-      auto new_token_string = tokenizer_stream->Decode(new_token);
-      // std::cout << new_token_string << std::flush;
-      out_string += new_token_string;
-      if (strchr(new_token_string, '}') != NULL) {
-        // foundthe marker so stop now
-        break;
-      }
+        const auto num_tokens = generator->GetSequenceCount(0);
+        const auto new_token = generator->GetSequenceData(0)[num_tokens - 1];
+        tokens_generated++;
+
+        auto new_token_string = tokenizer_stream->Decode(new_token);
+
+        // std::cout << new_token_string << std::flush;
+        out_string += new_token_string;
+        if (strchr(new_token_string, '}') != NULL) {
+          // found the marker so stop now
+          break;
+        }
+      } // while 
+    } // try
+    catch (const std::exception& e) {
+      std::cout << "Session Terminated: " << e.what() << std::endl;
     }
 
     int64_t t_done = timer_us();
@@ -260,6 +275,10 @@ void Onnx_Generator(const char* model_path, const char* execution_provider) {
     printf("%s\n\n", out_string.c_str());
 
     custom_prompts_it++;
+
+    //if (th.joinable()) {
+    //  th.join();  // Join the thread if it's still running
+    //}
   }
 
   int64_t t_elapsed = timer_us() - t_start;
@@ -267,26 +286,31 @@ void Onnx_Generator(const char* model_path, const char* execution_provider) {
 }
 
 static void print_usage(int /*argc*/, char** argv) {
-  std::cerr << "usage: " << argv[0] << " <model_path> <custom_prompt_file> [ep]" << std::endl;
+  std::cerr << "usage: " << argv[0] << " model_path [ep] [cpf] " << std::endl;
 }
 
 int main(int argc, char** argv) {
-  if (argc < 2) {
+  if (argc < 4) {
     print_usage(argc, argv);
     return -1;
   }
 
+  std::cout << "-------------" << std::endl;
+  std::cout << "  B612 SLM   " << std::endl;
+  std::cout << "-------------" << std::endl;
+
+  std::cerr << "usage: " << argv[0] << std::endl;
+  std::cerr << "model_path = " << argv[1] << std::endl;
+  std::cerr << "execution_provider (ep) = " << argv[2] << std::endl;
+  std::cerr << "custom_prompt_file (cpf)= " << argv[3] << std::endl;
+
   timer_init();
 
   if (argc > 2) {
-    processCustomPromptsFromFile(argv[2]);
+    processCustomPromptsFromFile(argv[3]);
   }
 
-  if (argc > 3) {
-    Onnx_Generator(argv[1], argv[3]);
-  } else {
-      Onnx_Generator(argv[1], "cpu");
-  }
+  Onnx_Generator(argv[1], argv[2]);
 
   return 0;
 }
