@@ -23,23 +23,28 @@ class TerminateSession {
     bool stopFlag = false;
  
     void signalHandler(int signum) {
-      std::cout << "Interrupt signal received. Terminating current session...\n";
+      std::cout << __func__ << ":Interrupt signal received. Terminating current session...\n";
       std::unique_lock<std::mutex> lock(mtx);
       stopFlag = true;
       cv.notify_one();
     }
  
     void Generator_SetTerminate_Call(OgaGenerator* generator) {
+      printf("--> %s\n", __func__);
       std::unique_lock<std::mutex> lock(mtx);
       while (!generator->IsDone()) {
+        printf("--> %s - 1\n", __func__);
         if (stopFlag) {
           generator->SetRuntimeOption("terminate_session", "1");
           stopFlag = false;
+          printf("--> %s - 2\n", __func__);
           break;
         }
         // Wait for stopflag to become true or it will timeout after 1000 ms
+        printf("--> %s - 3\n", __func__);
         auto timeout = std::chrono::milliseconds(1000);
         cv.wait_for(lock, timeout, [this] { return stopFlag; });
+        printf("--> %s - 4\n", __func__);
       }
     }
  
@@ -61,6 +66,7 @@ class TerminateSession {
 static TerminateSession catch_terminate;
  
 void signalHandlerWrapper(int signum) {
+  printf("--> %s: %d\n", __func__, signum);
   catch_terminate.signalHandler(signum);
 }
  
@@ -160,7 +166,7 @@ void PrintOutput(const char *output_string) {
 }
 
 void Onnx_Generator(const char* model_path, const char* execution_provider) {
-  signal(SIGINT, signalHandlerWrapper);
+  // signal(SIGINT, signalHandlerWrapper);
 
   std::cout << "Creating config..." << std::endl;
   auto config = OgaConfig::Create(model_path);
@@ -221,12 +227,16 @@ void Onnx_Generator(const char* model_path, const char* execution_provider) {
 
     try {
 
+      auto num_tokens = generator->GetSequenceCount(0);
       while (!generator->IsDone()) {
         generator->GenerateNextToken();
 
         if (is_first_token) {
           int64_t t1 = timer_us();
-          printf("  - TTFT %9.2fms\n", (double)(t1 - t0) / 1000.);
+          printf("  - TTFT %9.2fms - %5.2f tps (%zd)\n", 
+            (double)(t1 - t0) / 1000.,
+            (num_tokens * 1000.0 * 1000.0) / (t1 - t0),
+            num_tokens);
 
           // timing.RecordFirstTokenTimestamp();
           is_first_token = false;
@@ -248,9 +258,9 @@ void Onnx_Generator(const char* model_path, const char* execution_provider) {
         //std::cout << std::endl;
 #endif
 
-        const auto num_tokens = generator->GetSequenceCount(0);
+        num_tokens = generator->GetSequenceCount(0);
         const auto new_token = generator->GetSequenceData(0)[num_tokens - 1];
-        tokens_generated++;
+        tokens_generated += 1;
 
         auto new_token_string = tokenizer_stream->Decode(new_token);
 
@@ -260,7 +270,8 @@ void Onnx_Generator(const char* model_path, const char* execution_provider) {
           // found the marker so stop now
           break;
         }
-      } // while 
+      } // while
+
     } // try
     catch (const std::exception& e) {
       std::cout << "Session Terminated: " << e.what() << std::endl;
