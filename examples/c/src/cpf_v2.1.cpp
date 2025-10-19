@@ -93,44 +93,55 @@ void CheckResult(OgaResult* result) {
 }
 
 bool processCustomPromptsFromFile(const char *cpf) {
-    std::string custom_p_file(cpf);
-    std::ifstream cpfile(custom_p_file);
-    if (!cpfile.is_open()) {
-        printf("[%s]: failed to open [%s]\n", __func__, custom_p_file.c_str());
-        return false;
+  if (!cpf || !*cpf) return false;
+  std::string custom_p_file(cpf);
+  std::ifstream cpfile(custom_p_file);
+  if (!cpfile) {
+    printf("[%s]: failed to open [%s]\n", __func__, custom_p_file.c_str());
+    return false;
+  }
+
+  enum class Mode { None, Template, User } mode = Mode::None;
+  custom_prompts.clear();
+  custom_template_prompt.clear();
+
+  std::string line;
+  std::string template_accum;
+  template_accum.reserve(4096);
+
+  auto strip_cr = [](std::string &s) {
+    if (!s.empty() && s.back() == '\r') s.pop_back();
+  };
+  auto strip_utf8_bom = [](std::string &s) {
+    if (s.size() >= 3 && (unsigned char)s[0] == 0xEF && (unsigned char)s[1] == 0xBB && (unsigned char)s[2] == 0xBF)
+      s.erase(0, 3);
+  };
+  auto trimmed_key = [](const std::string &s) {
+    size_t a = 0, b = s.size();
+    while (a < b && isspace((unsigned char)s[a])) ++a;
+    while (b > a && isspace((unsigned char)s[b-1])) --b;
+    return s.substr(a, b - a);
+  };
+
+  while (std::getline(cpfile, line)) {
+    strip_cr(line);
+    strip_utf8_bom(line);
+
+    std::string key = trimmed_key(line);
+    if (key == "CUSTOM_TEMPLATE_PROMPT") { mode = Mode::Template; continue; }
+    if (key == "CUSTOM_PROMPT") { mode = Mode::User; continue; }
+    if (key == "END_SECTION") { mode = Mode::None; continue; }
+
+    if (mode == Mode::Template) {
+      template_accum.append(line);
+      template_accum.push_back('\n');
+    } else if (mode == Mode::User) {
+      custom_prompts.emplace_back(std::move(line));
     }
+  }
 
-    std::string line;
-
-    bool templatePromptMode = false;
-    bool userPromptMode = false;
-    custom_prompts.clear();
-    custom_template_prompt = "";
-
-    // process CUSTOM_SYSTEM_PROMPT
-    while (std::getline(cpfile, line)) {
-        if (line == "CUSTOM_TEMPLATE_PROMPT") {
-            templatePromptMode = true;
-            continue;
-        } else if (line == "CUSTOM_PROMPT") {
-            userPromptMode = true;
-            continue;
-        } else if (line == "END_SECTION") {
-            templatePromptMode = false;
-            userPromptMode = false;
-            continue;
-        }
-
-        if (templatePromptMode) {
-            custom_template_prompt += line + '\n';
-        } else if (userPromptMode) {
-            custom_prompts.push_back(line);
-        }
-    }
-
-    cpfile.close();
-
-    return true;
+  custom_template_prompt = std::move(template_accum);
+  return true;
 }
 
 void PrintOutput(const char *output_string) {
