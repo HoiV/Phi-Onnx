@@ -67,8 +67,8 @@ if(PHI3)
 endif()
 
 if(CPF)
-  add_executable(cpf ${EXAMPLES_SOURCE_DIR}/cpf_v2.cpp  ${EXAMPLES_SOURCE_DIR}/common.cpp)
-  prepare_executable(cpf)
+  add_executable(cpf_v2 ${EXAMPLES_SOURCE_DIR}/cpf_v2.cpp  ${EXAMPLES_SOURCE_DIR}/common.cpp)
+  prepare_executable(cpf_v2)
 endif()
 
 if(PHI3_QA)
