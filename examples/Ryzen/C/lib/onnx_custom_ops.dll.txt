@@ -1,1 +1,2 @@
 __Place Holder__ for onnx_custom_ops.dll
+copy /b onnx_custom_ops.dll.000.part+onnx_custom_ops.dll.001.part+onnx_custom_ops.dll.002.part+onnx_custom_ops.dll.003.part onnx_custom_ops.dll
