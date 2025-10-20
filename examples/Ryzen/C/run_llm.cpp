@@ -125,10 +125,31 @@ void CXX_API_CustomPrompt(const char* model_path, int max_new_tokens, std::istre
       }
 
       auto sequences = OgaSequences::Create();
+      // printf("Full prompt = \n[%s]\n=====\n", full_custom_prompt.c_str());
       tokenizer->Encode(full_custom_prompt.c_str(), *sequences);
 
-      if (sequences->SequenceCount(0) > 2048) {
-        std::cout << "\nPrompt Number of Tokens: " << sequences->SequenceCount(0) << std::endl;
+      const OgaSequences* p = sequences.get();
+      auto token_sequences = (*reinterpret_cast<const std::vector<std::vector<int>>*>(p));
+      auto tokens = token_sequences[0];
+
+      auto prompt_sequences = OgaSequences::Create();
+      OgaSequences* new_sequences = prompt_sequences.get();
+      auto& prompt_tokenSequences = (*reinterpret_cast<std::vector<std::vector<int>>*>(new_sequences));
+      std::vector<int32_t> prompt_tokens;
+
+      if (sequences->SequenceCount(0) > 2048){
+        std::cout << "\nPrompt Number of Tokens too large: " << sequences->SequenceCount(0) << std::endl;
+        std::cout << "Reducing the number of tokens for input prompt from " << sequences->SequenceCount(0) << " to 2048" << std::endl;
+        prompt_tokens.assign(tokens.begin(), tokens.begin() + 2048);
+      }
+      else{
+        prompt_tokens = (tokens);
+      }
+      
+      prompt_tokenSequences.emplace_back(prompt_tokens);
+
+      if (prompt_sequences->SequenceCount(0) > 2048) {
+        std::cout << "\nPrompt Number of Tokens: " << prompt_sequences->SequenceCount(0) << std::endl;
         std::cout << "Error: Only <= 2048 Prompt length is supported currently!\n" << std::endl;
         continue;
       }
@@ -137,10 +158,7 @@ void CXX_API_CustomPrompt(const char* model_path, int max_new_tokens, std::istre
       auto params = OgaGeneratorParams::Create(*model);
 
       params->SetSearchOption("max_length", 4096);
-      params->SetInputSequences(*sequences);
-
-      // bump iterator
-      custom_prompts_it++;
+      // Deprecated: params->SetInputSequences(*sequences);
 
       double duration = 0, duration_prefil = 0, token_time = 0;
       unsigned int ntokens = 0;
@@ -149,11 +167,12 @@ void CXX_API_CustomPrompt(const char* model_path, int max_new_tokens, std::istre
 
       // Create Generator
       auto generator = OgaGenerator::Create(*model, *params);
+      generator->AppendTokenSequences(*prompt_sequences);
 
       bool first = true;
       while (!generator->IsDone()) {
         auto start = std::chrono::steady_clock::now();
-        generator->ComputeLogits();
+        // Deprecated: generator->ComputeLogits();
         generator->GenerateNextToken();
         if (first) {
           auto end = std::chrono::steady_clock::now();
@@ -184,6 +203,9 @@ void CXX_API_CustomPrompt(const char* model_path, int max_new_tokens, std::istre
 
       for (int i = 0; i < 3; ++i)
         std::cout << std::endl;
+
+      // bump iterator
+      custom_prompts_it++;
 
       if (en_profile)
         break;
@@ -285,7 +307,7 @@ void CXX_API(const char* model_path, int max_new_tokens, std::istream& istr, boo
       auto params = OgaGeneratorParams::Create(*model);
 
       params->SetSearchOption("max_length", 4096);
-      params->SetInputSequences(*prompt_sequences);
+      // Deprecated: params->SetInputSequences(*prompt_sequences);
 
       double duration = 0, duration_prefil = 0, token_time = 0;
       unsigned int ntokens = 0;
@@ -293,11 +315,12 @@ void CXX_API(const char* model_path, int max_new_tokens, std::istream& istr, boo
       unsigned int max_tkns = (max_new_tokens < defaul_token)? defaul_token : max_new_tokens;
 
       auto generator = OgaGenerator::Create(*model, *params);
+      generator->AppendTokenSequences(*prompt_sequences);
       std::cout << "Generator created ..." << std::endl;
       bool first = true;
       while (!generator->IsDone()) {
         auto start = std::chrono::steady_clock::now();
-        generator->ComputeLogits();
+        // Deprecated: generator->ComputeLogits();
         generator->GenerateNextToken();
         if (first) {
           auto end = std::chrono::steady_clock::now();
