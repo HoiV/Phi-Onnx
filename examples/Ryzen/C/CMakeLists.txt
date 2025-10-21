@@ -38,3 +38,6 @@ set(TARGET run_llm)
   add_executable(run_llm ${CMAKE_SOURCE_DIR}/run_llm.cpp ${CMAKE_SOURCE_DIR}/util/getopt.c)
   prepare_executable(run_llm)
 
+set(TARGET sample)
+add_executable(sample ${CMAKE_SOURCE_DIR}/sample.cpp)
+prepare_executable(sample)
